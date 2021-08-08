@@ -10,5 +10,6 @@ namespace UmFramework.Annotations
     class Campo : System.Attribute  
     {
         public bool chavePrimaria;
+        public bool ignorarPersitencia;
     }
 }

@@ -9,7 +9,12 @@ namespace UmFramework
     class TesteDados
     {
         [Campo(chavePrimaria = true)]
-        public int id { get; set; } = 1;
-        public string nome { get; set; } = "";
+        public long id { get; set; }
+        public string nome { get; set; }
+        public DateTime data { get; set; }
+        public bool ativo { get; set; }
+        
+        [Campo(ignorarPersitencia = true)]
+        public string teste { get; set; }
     }
 }
