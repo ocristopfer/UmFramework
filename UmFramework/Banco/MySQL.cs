@@ -12,7 +12,7 @@ namespace UmFramework.Banco
 {
     class MySQL: IPersitencia
     {
-        private MySqlConnection conSql;
+        private readonly MySqlConnection conSql;
         public MySQL(MySqlConnection conSql)
         {
             this.conSql = conSql;
@@ -48,34 +48,32 @@ namespace UmFramework.Banco
             try
             {
 
-                using (MySqlCommand oCmd = conSql.CreateCommand())
+                using MySqlCommand oCmd = conSql.CreateCommand();
+                conSql.Open();
+                List<ListaDePropriedades> lstPropriedades = MetodosAuxiliares.getListaDePropriedades(objeto, ignorarPersistencia);
+
+                string query = $@"INSERT INTO {nomeTabela} ({string.Join(",", lstPropriedades.Select(x => x.nomeCampo))}) VALUES ({string.Join(",", lstPropriedades.Select(x => x.nomeCampoRef))});";
+                if (nomeChavePrimaria != "")
                 {
-                    conSql.Open();
-                    List<ListaDePropriedades> lstPropriedades = MetodosAuxiliares.getListaDePropriedades(objeto, ignorarPersistencia);
-
-                    string query = $@"INSERT INTO {nomeTabela} ({string.Join(",", lstPropriedades.Select(x => x.nomeCampo))}) VALUES ({string.Join(",", lstPropriedades.Select(x => x.nomeCampoRef))});";
-                    if (nomeChavePrimaria != "")
-                    {
-                        query += "SELECT LAST_INSERT_ID();";
-                    }
-
-                    oCmd.CommandText = query;
-
-                    foreach (var oProp in lstPropriedades)
-                    {
-                        oCmd.Parameters.AddWithValue(oProp.nomeCampoRef, oProp.valorCampo);
-                    }
-
-                    oCmd.ExecuteNonQuery();
-                    var result = oCmd.LastInsertedId;
-                    var objetoPropriedades = objeto.GetType().GetRuntimeProperties();
-
-                    PropertyInfo chave = (PropertyInfo)objetoPropriedades.Where(x => x.Name == nomeChavePrimaria).FirstOrDefault();
-                    chave.SetValue(objeto, oCmd.LastInsertedId);
-
-                    conSql.Close();
-                    return true;
+                    query += "SELECT LAST_INSERT_ID();";
                 }
+
+                oCmd.CommandText = query;
+
+                foreach (var oProp in lstPropriedades)
+                {
+                    oCmd.Parameters.AddWithValue(oProp.nomeCampoRef, oProp.valorCampo);
+                }
+
+                oCmd.ExecuteNonQuery();
+                var result = oCmd.LastInsertedId;
+                var objetoPropriedades = objeto.GetType().GetRuntimeProperties();
+
+                PropertyInfo chave = (PropertyInfo)objetoPropriedades.Where(x => x.Name == nomeChavePrimaria).FirstOrDefault();
+                chave.SetValue(objeto, oCmd.LastInsertedId);
+
+                conSql.Close();
+                return true;
             }
             catch (Exception)
             {
@@ -87,29 +85,27 @@ namespace UmFramework.Banco
         {
             try
             {
-                using (MySqlCommand oCmd = conSql.CreateCommand())
+                using MySqlCommand oCmd = conSql.CreateCommand();
+                conSql.Open();
+                List<ListaDePropriedades> lstPropriedades = MetodosAuxiliares.getListaDePropriedades(objeto, ignorarPersistencia);
+
+                string query = $@"UPDATE {nomeTabela} SET {string.Join(",", lstPropriedades.Select(x => x.nomeCampo + " = " + x.nomeCampoRef))}";
+
+                if (nomeChavePrimaria != "")
                 {
-                    conSql.Open();
-                    List<ListaDePropriedades> lstPropriedades = MetodosAuxiliares.getListaDePropriedades(objeto, ignorarPersistencia);
-
-                    string query = $@"UPDATE {nomeTabela} SET {string.Join(",", lstPropriedades.Select(x => x.nomeCampo + " = " + x.nomeCampoRef))}";
-
-                    if (nomeChavePrimaria != "")
-                    {
-                        query += $" WHERE {nomeChavePrimaria} = " + lstPropriedades.Where(x => x.nomeCampo == nomeChavePrimaria).ToList()[0].valorCampo;
-                    }
-
-                    oCmd.CommandText = query;
-
-                    foreach (var oProp in lstPropriedades)
-                    {
-                        oCmd.Parameters.AddWithValue(oProp.nomeCampoRef, oProp.valorCampo);
-                    }
-
-                    var result = oCmd.ExecuteNonQuery();
-                    conSql.Close();
-                    return true;
+                    query += $" WHERE {nomeChavePrimaria} = " + lstPropriedades.Where(x => x.nomeCampo == nomeChavePrimaria).ToList()[0].valorCampo;
                 }
+
+                oCmd.CommandText = query;
+
+                foreach (var oProp in lstPropriedades)
+                {
+                    oCmd.Parameters.AddWithValue(oProp.nomeCampoRef, oProp.valorCampo);
+                }
+
+                var result = oCmd.ExecuteNonQuery();
+                conSql.Close();
+                return true;
             }
             catch (Exception)
             {
@@ -126,15 +122,13 @@ namespace UmFramework.Banco
             MetodosAuxiliares.getAnnotations(objeto, ref nomeTabela, ref nomeChavePrimaria, ref valorChavePrimaria, ref ignorarPersistencia);
             try
             {
-                using (MySqlCommand oCmd = conSql.CreateCommand())
-                {
-                    conSql.Open();
-                    string query = $@"DELETE FROM {nomeTabela} WHERE {nomeChavePrimaria} = {valorChavePrimaria}";
-                    oCmd.CommandText = query;
-                    var result = oCmd.ExecuteNonQuery();
-                    conSql.Close();
-                    return true;
-                }
+                using MySqlCommand oCmd = conSql.CreateCommand();
+                conSql.Open();
+                string query = $@"DELETE FROM {nomeTabela} WHERE {nomeChavePrimaria} = {valorChavePrimaria}";
+                oCmd.CommandText = query;
+                var result = oCmd.ExecuteNonQuery();
+                conSql.Close();
+                return true;
             }
             catch (Exception)
             {
@@ -146,14 +140,12 @@ namespace UmFramework.Banco
         {
             try
             {
-                using (MySqlCommand oCmd = conSql.CreateCommand())
-                {
-                    var oDataTable = new DataTable();
-                    oCmd.CommandText = query;
-                    MySql.Data.MySqlClient.MySqlDataAdapter oAdap = new MySqlDataAdapter(oCmd);
-                    oAdap.Fill(oDataTable);
-                    return oDataTable;
-                }
+                using MySqlCommand oCmd = conSql.CreateCommand();
+                var oDataTable = new DataTable();
+                oCmd.CommandText = query;
+                MySql.Data.MySqlClient.MySqlDataAdapter oAdap = new MySqlDataAdapter(oCmd);
+                oAdap.Fill(oDataTable);
+                return oDataTable;
             }
             catch (Exception)
             {
@@ -201,14 +193,12 @@ namespace UmFramework.Banco
             MetodosAuxiliares.getAnnotations(objeto, ref nomeTabela, ref nomeChavePrimaria, ref valorChavePrimaria, ref ignorarPersistencia);
             try
             {
-                using (MySqlCommand oCmd = conSql.CreateCommand())
-                {
-                    var oDataTable = new DataTable();
-                    oCmd.CommandText = query;
-                    MySql.Data.MySqlClient.MySqlDataAdapter oAdap = new MySqlDataAdapter(oCmd);
-                    oAdap.Fill(oDataTable);
-                    return MetodosAuxiliares.getListFromDataTable<T>(oDataTable, ignorarPersistencia);
-                }
+                using MySqlCommand oCmd = conSql.CreateCommand();
+                var oDataTable = new DataTable();
+                oCmd.CommandText = query;
+                MySql.Data.MySqlClient.MySqlDataAdapter oAdap = new MySqlDataAdapter(oCmd);
+                oAdap.Fill(oDataTable);
+                return MetodosAuxiliares.getListFromDataTable<T>(oDataTable, ignorarPersistencia);
 
             }
             catch (Exception)
