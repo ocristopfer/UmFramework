@@ -13,9 +13,12 @@ namespace UmFramework.Banco
     class MySQL: IPersitencia
     {
         private readonly MySqlConnection conSql;
-        public MySQL(MySqlConnection conSql)
+        private readonly bool transaction = false;
+        public MySQL(MySqlConnection conSql, bool transaction = false)
         {
             this.conSql = conSql;
+            this.transaction = transaction;
+
         }
         public bool Salvar(Object objeto)
         {
@@ -43,22 +46,55 @@ namespace UmFramework.Banco
             }
 
         }
+
+        public bool SalvarLista(List<object> lstOjeto)
+        {
+            if (lstOjeto == null)
+                return false;
+
+            string nomeTabela = "";
+            string nomeChavePrimaria = "";
+            long valorChavePrimaria = 0;
+            List<string> ignorarPersistencia = new List<string>();
+
+            if (nomeTabela == "" || nomeChavePrimaria == "")
+                return false;
+
+            var insertQuery = "";
+            var updateQuery = "";
+            foreach (var item in lstOjeto)
+            {
+                MetodosAuxiliares.getAnnotations(item, ref nomeTabela, ref nomeChavePrimaria, ref valorChavePrimaria, ref ignorarPersistencia);
+                List<ListaDePropriedades> lstPropriedades = MetodosAuxiliares.getListaDePropriedades(item, ignorarPersistencia);
+                if ((int)valorChavePrimaria == 0)
+                {
+                    insertQuery = this.getInsertQuery(nomeTabela, lstPropriedades, nomeChavePrimaria);
+                }
+                else
+                {
+                    updateQuery = this.getUpdateQuery(nomeTabela, lstPropriedades, nomeChavePrimaria);
+                }
+            }
+            throw new NotImplementedException();
+            
+        }
+
         private bool Inserir(Object objeto, string nomeTabela, string nomeChavePrimaria, List<string> ignorarPersistencia)
         {
+            MySqlTransaction trans = null;
             try
             {
 
-                using MySqlCommand oCmd = conSql.CreateCommand();
+                MySqlCommand oCmd = conSql.CreateCommand();
+                
                 conSql.Open();
+                
+                if (this.transaction)
+                    trans = conSql.BeginTransaction();
+
                 List<ListaDePropriedades> lstPropriedades = MetodosAuxiliares.getListaDePropriedades(objeto, ignorarPersistencia);
 
-                string query = $@"INSERT INTO {nomeTabela} ({string.Join(",", lstPropriedades.Select(x => x.nomeCampo))}) VALUES ({string.Join(",", lstPropriedades.Select(x => x.nomeCampoRef))});";
-                if (nomeChavePrimaria != "")
-                {
-                    query += "SELECT LAST_INSERT_ID();";
-                }
-
-                oCmd.CommandText = query;
+                oCmd.CommandText = getInsertQuery(nomeTabela, lstPropriedades, nomeChavePrimaria);
 
                 foreach (var oProp in lstPropriedades)
                 {
@@ -67,6 +103,10 @@ namespace UmFramework.Banco
 
                 oCmd.ExecuteNonQuery();
                 var result = oCmd.LastInsertedId;
+
+                if (this.transaction)
+                    trans.Commit();
+
                 var objetoPropriedades = objeto.GetType().GetRuntimeProperties();
 
                 PropertyInfo chave = (PropertyInfo)objetoPropriedades.Where(x => x.Name == nomeChavePrimaria).FirstOrDefault();
@@ -77,26 +117,37 @@ namespace UmFramework.Banco
             }
             catch (Exception)
             {
+                if (this.transaction)
+                    trans.Rollback();
+                conSql.Close();
                 return false;
             }
 
         }
+
+        private string getInsertQuery(string nomeTabela, List<ListaDePropriedades> lstPropriedades, string nomeChavePrimaria = "")
+        {
+            string query = $@"INSERT INTO {nomeTabela} ({string.Join(",", lstPropriedades.Select(x => x.nomeCampo))}) VALUES ({string.Join(",", lstPropriedades.Select(x => x.nomeCampoRef))});";
+            if (nomeChavePrimaria != "")
+            {
+                query += "SELECT LAST_INSERT_ID();";
+            }
+            return query;
+        }
         private bool Atualizar(Object objeto, string nomeTabela, string nomeChavePrimaria, List<string> ignorarPersistencia)
         {
+            MySqlTransaction trans = null;
             try
             {
                 using MySqlCommand oCmd = conSql.CreateCommand();
                 conSql.Open();
+                if (this.transaction)
+                    trans = conSql.BeginTransaction();
+
+
                 List<ListaDePropriedades> lstPropriedades = MetodosAuxiliares.getListaDePropriedades(objeto, ignorarPersistencia);
-
-                string query = $@"UPDATE {nomeTabela} SET {string.Join(",", lstPropriedades.Select(x => x.nomeCampo + " = " + x.nomeCampoRef))}";
-
-                if (nomeChavePrimaria != "")
-                {
-                    query += $" WHERE {nomeChavePrimaria} = " + lstPropriedades.Where(x => x.nomeCampo == nomeChavePrimaria).ToList()[0].valorCampo;
-                }
-
-                oCmd.CommandText = query;
+                
+                oCmd.CommandText = this.getUpdateQuery(nomeTabela, lstPropriedades, nomeChavePrimaria);
 
                 foreach (var oProp in lstPropriedades)
                 {
@@ -104,13 +155,30 @@ namespace UmFramework.Banco
                 }
 
                 var result = oCmd.ExecuteNonQuery();
+                if (this.transaction)
+                    trans.Commit();
+
                 conSql.Close();
                 return true;
             }
             catch (Exception)
             {
+                if (this.transaction)
+                    trans.Rollback();
+                conSql.Close();
                 return false;
             }
+        }
+
+        private string getUpdateQuery(string nomeTabela, List<ListaDePropriedades>  lstPropriedades, string nomeChavePrimaria)
+        {
+            string query = $@"UPDATE {nomeTabela} SET {string.Join(",", lstPropriedades.Select(x => x.nomeCampo + " = " + x.nomeCampoRef))}";
+
+            if (nomeChavePrimaria != "")
+            {
+                query += $" WHERE {nomeChavePrimaria} = " + lstPropriedades.Where(x => x.nomeCampo == nomeChavePrimaria).ToList()[0].valorCampo;
+            }
+            return query;
         }
         public bool Excluir(Object objeto)
         {
@@ -118,32 +186,44 @@ namespace UmFramework.Banco
             string nomeChavePrimaria = "";
             long valorChavePrimaria = 0;
             List<string> ignorarPersistencia = new List<string>();
+            MySqlTransaction trans = null;
 
             MetodosAuxiliares.getAnnotations(objeto, ref nomeTabela, ref nomeChavePrimaria, ref valorChavePrimaria, ref ignorarPersistencia);
+
             try
             {
                 using MySqlCommand oCmd = conSql.CreateCommand();
                 conSql.Open();
+                if (this.transaction)
+                    trans = conSql.BeginTransaction();
+
                 string query = $@"DELETE FROM {nomeTabela} WHERE {nomeChavePrimaria} = {valorChavePrimaria}";
                 oCmd.CommandText = query;
                 var result = oCmd.ExecuteNonQuery();
+                if (this.transaction)
+                    trans.Commit();
+
                 conSql.Close();
                 return true;
             }
             catch (Exception)
             {
+                if (this.transaction)
+                    trans.Rollback();
+                conSql.Close();
                 return false;
             }
 
         }
-        public DataTable ExecutarQuery(string query)
-        {
+        public DataTable ExecutarQuery(string query, int pagina = 0, int tamanhoPagina = 0)        {
             try
             {
                 using MySqlCommand oCmd = conSql.CreateCommand();
                 var oDataTable = new DataTable();
+                query = this.PaginarQuery(query, pagina, tamanhoPagina);
+                
                 oCmd.CommandText = query;
-                MySql.Data.MySqlClient.MySqlDataAdapter oAdap = new MySqlDataAdapter(oCmd);
+                MySqlDataAdapter oAdap = new MySqlDataAdapter(oCmd);
                 oAdap.Fill(oDataTable);
                 return oDataTable;
             }
@@ -155,7 +235,6 @@ namespace UmFramework.Banco
         public T CarregarObjeto<T>(long id) where T : new()
         {
             var objeto = new T();
-            var objetoPropriedades = objeto.GetType().GetRuntimeProperties();
             string nomeTabela = "";
             string nomeChavePrimaria = "";
             long valorChavePrimaria = 0;
@@ -175,11 +254,13 @@ namespace UmFramework.Banco
             }
 
         }
-        public List<T> CarregarObjetos<T>(string CustomQuery = "") where T : new()
+        public List<T> CarregarObjetos<T>(string CustomQuery = "", int pagina = 0, int tamanhoPagina = 0) where T : new()
         {
             var objeto = new T();
             var nomeTabela = ((Annotations.Tabela)objeto.GetType().GetCustomAttribute(typeof(Annotations.Tabela))).nomeTabela;
             string query = CustomQuery != "" ? CustomQuery : $@"SELECT * FROM {nomeTabela}";
+            query = this.PaginarQuery(query, pagina, tamanhoPagina);
+    
             return this.CarregarLista<T>(query);
         }
         private List<T> CarregarLista<T>(string query) where T : new()
@@ -203,9 +284,26 @@ namespace UmFramework.Banco
             }
             catch (Exception)
             {
+                conSql.Close();
                 return null;
             }
 
         }
+
+        private string PaginarQuery(string query, int pagina, int tamanhoPagina)
+        {
+            if(tamanhoPagina == 0)
+            {
+                return query;
+            }
+            else
+            {
+                pagina = (pagina - 1) * tamanhoPagina;
+                return query += $@" LIMIT {pagina},{tamanhoPagina}";
+            }
+            
+        }
+
+
     }
 }

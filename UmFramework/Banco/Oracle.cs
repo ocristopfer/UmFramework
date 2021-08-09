@@ -13,11 +13,14 @@ namespace UmFramework.Banco
     class Oracle : IPersitencia
     {
 
-        private OracleConnection conSql;
-        Oracle(OracleConnection conSql)
+        private readonly OracleConnection conSql;
+        private readonly bool transaction;
+        public Oracle(OracleConnection conSql, bool transaction)
         {
             this.conSql = conSql;
+            this.transaction = transaction;
         }
+
         public bool Salvar(Object objeto)
         {
             if (objeto == null)
@@ -43,6 +46,11 @@ namespace UmFramework.Banco
                 return this.Atualizar(objeto, nomeTabela, nomeChavePrimaria, ignorarPersistencia);
             }
 
+        }
+
+        public bool SalvarLista(List<object> lstOjeto)
+        {
+            throw new NotImplementedException();
         }
         private bool Inserir(Object objeto, string nomeTabela, string nomeChavePrimaria, List<string> ignorarPersistencia)
         {
@@ -143,7 +151,7 @@ namespace UmFramework.Banco
             }
 
         }
-        public DataTable ExecutarQuery(string query)
+        public DataTable ExecutarQuery(string query, int pagina = 0, int tamanhoPagina = 0)
         {
             try
             {
@@ -184,7 +192,7 @@ namespace UmFramework.Banco
             }
 
         }
-        public List<T> CarregarObjetos<T>(string CustomQuery = "") where T : new()
+        public List<T> CarregarObjetos<T>(string CustomQuery = "", int pagina = 0, int tamanhoPagina = 0) where T : new()
         {
             var objeto = new T();
             var nomeTabela = ((Annotations.Tabela)objeto.GetType().GetCustomAttribute(typeof(Annotations.Tabela))).nomeTabela;

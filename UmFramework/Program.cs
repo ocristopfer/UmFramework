@@ -1,4 +1,7 @@
-﻿using System;
+﻿using MySql.Data.MySqlClient;
+using System;
+using System.Data.SqlClient;
+using UmFramework.Util;
 
 namespace UmFramework
 {
@@ -7,11 +10,13 @@ namespace UmFramework
         static void Main(string[] args)
         {
             Console.WriteLine("Hello World!");
-            
-            MySql.Data.MySqlClient.MySqlConnection oCnn = new MySql.Data.MySqlClient.MySqlConnection("server=localhost;user=root;database=teste;port=3306;password=suporte");
-            
-            IPersitencia db = new Banco.MySQL(oCnn);
 
+            IPersitencia db;
+       
+
+            MySqlConnection oCnn = new MySqlConnection("server=localhost;user=root;database=teste;port=3306;password=suporte");
+            
+            db = MetodosAuxiliares.GetPersitencia(oCnn, Enumeradores.TipoServidorDb.MySql, true);
 
             var teste = new TesteDados();
             teste.nome = "um novo teste novo";
@@ -26,7 +31,7 @@ namespace UmFramework
             db.Salvar(teste);
 
             
-            var teste3 = db.CarregarObjetos<TesteDados>();
+            var teste3 = db.CarregarObjetos<TesteDados>("", 1, 10);
             var teste4 = db.ExecutarQuery("SELECT * FROM CADASTRO");
             var count = teste4.Rows.Count;
 

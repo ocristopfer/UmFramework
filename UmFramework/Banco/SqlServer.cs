@@ -13,10 +13,12 @@ namespace UmFramework.Banco
 {
     class SqlServer : IPersitencia
     {
-        private SqlConnection conSql;
-        SqlServer(SqlConnection conSql)
+        private readonly SqlConnection conSql;
+        private readonly bool transaction;
+        public SqlServer(SqlConnection conSql, bool transaction)
         {
             this.conSql = conSql;
+            this.transaction = transaction;
         }
         public bool Salvar(Object objeto)
         {
@@ -44,6 +46,12 @@ namespace UmFramework.Banco
             }
 
         }
+
+        public bool SalvarLista(List<object> lstOjeto)
+        {
+            throw new NotImplementedException();
+        }
+
         private bool Inserir(Object objeto, string nomeTabela, string nomeChavePrimaria, List<string> ignorarPersistencia)
         {
             try
@@ -123,7 +131,7 @@ namespace UmFramework.Banco
             }
 
         }
-        public DataTable ExecutarQuery(string query)
+        public DataTable ExecutarQuery(string query, int pagina = 0, int tamanhoPagina = 0)
         {
             try
             {
@@ -161,7 +169,7 @@ namespace UmFramework.Banco
             }
 
         }
-        public List<T> CarregarObjetos<T>(string CustomQuery = "") where T : new()
+        public List<T> CarregarObjetos<T>(string CustomQuery = "", int pagina = 0, int tamanhoPagina = 0) where T : new()
         {
             var objeto = new T();
             var nomeTabela = ((Annotations.Tabela)objeto.GetType().GetCustomAttribute(typeof(Annotations.Tabela))).nomeTabela;
@@ -192,6 +200,21 @@ namespace UmFramework.Banco
                 return null;
             }
 
+        }
+        private string PaginarQuery(string query, int pagina = 0, int tamanhoPagina = 0)
+        {
+            if (tamanhoPagina == 0 && !query.Contains("ORDER BY"))
+            {
+                return query;
+            }
+            else
+            {
+                return query + $@" OFFSET {tamanhoPagina} * ({pagina} - 1) ROWS
+                                            FETCH NEXT {tamanhoPagina}
+                                                ROWS ONLY;";
+            }
+
+            return query;
         }
     }
 }

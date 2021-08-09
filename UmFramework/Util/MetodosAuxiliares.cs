@@ -1,15 +1,27 @@
-﻿using System;
+﻿using MySql.Data.MySqlClient;
+using Oracle.ManagedDataAccess.Client;
+using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Data.Common;
+using System.Data.SqlClient;
 using System.Linq;
 using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace UmFramework.Util
 {
     class MetodosAuxiliares
     {
+        public static IPersitencia GetPersitencia(DbConnection oCon, Enumeradores.TipoServidorDb enumTipoServidor, bool transaction = false)
+        {
+            return enumTipoServidor switch
+            {
+                Enumeradores.TipoServidorDb.MySql => new Banco.MySQL((MySqlConnection)oCon, transaction),
+                Enumeradores.TipoServidorDb.SqlServer => new Banco.SqlServer((SqlConnection)oCon, transaction),
+                Enumeradores.TipoServidorDb.Oracle => new Banco.Oracle((OracleConnection)oCon, transaction),
+                _ => new Banco.MySQL((MySqlConnection)oCon, transaction),
+            };
+        }
         public static List<T> getListFromDataTable<T>(DataTable oDataTable, List<string> ignorarPersistencia) where T : new()
         {
             var objetoPropriedades = new T().GetType().GetRuntimeProperties();
