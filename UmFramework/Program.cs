@@ -9,7 +9,9 @@ namespace UmFramework
             Console.WriteLine("Hello World!");
             
             MySql.Data.MySqlClient.MySqlConnection oCnn = new MySql.Data.MySqlClient.MySqlConnection("server=localhost;user=root;database=teste;port=3306;password=suporte");
-            var db = new Persitencia(oCnn);
+            
+            IPersitencia db = new Banco.MySQL(oCnn);
+
 
             var teste = new TesteDados();
             teste.nome = "um novo teste novo";

@@ -1,17 +1,20 @@
-﻿using System;
+﻿using Oracle.ManagedDataAccess.Client;
+using System;
 using System.Collections.Generic;
+using System.Data;
+using System.Linq;
 using System.Reflection;
 using System.Text;
-using MySql.Data.MySqlClient;
-using System.Linq;
-using System.Data;
+using System.Threading.Tasks;
+using UmFramework.Util;
 
-namespace UmFramework
+namespace UmFramework.Banco
 {
-    class Persitencia
+    class Oracle : IPersitencia
     {
-        private MySqlConnection conSql;
-        public Persitencia(MySqlConnection conSql)
+
+        private OracleConnection conSql;
+        Oracle(OracleConnection conSql)
         {
             this.conSql = conSql;
         }
@@ -25,7 +28,7 @@ namespace UmFramework
             long valorChavePrimaria = 0;
             List<string> ignorarPersistencia = new List<string>();
 
-            this.getAnnotations(objeto, ref nomeTabela, ref nomeChavePrimaria, ref valorChavePrimaria, ref ignorarPersistencia);
+            MetodosAuxiliares.getAnnotations(objeto, ref nomeTabela, ref nomeChavePrimaria, ref valorChavePrimaria, ref ignorarPersistencia);
 
             if (nomeTabela == "" || nomeChavePrimaria == "")
                 return false;
@@ -46,10 +49,10 @@ namespace UmFramework
             try
             {
 
-                using (MySqlCommand oCmd = conSql.CreateCommand())
+                using (OracleCommand oCmd = conSql.CreateCommand())
                 {
                     conSql.Open();
-                    List<ListaDePropriedades> lstPropriedades = this.getListaDePropriedades(objeto, ignorarPersistencia);
+                    List<ListaDePropriedades> lstPropriedades = MetodosAuxiliares.getListaDePropriedades(objeto, ignorarPersistencia);
 
                     string query = $@"INSERT INTO {nomeTabela} ({string.Join(",", lstPropriedades.Select(x => x.nomeCampo))}) VALUES ({string.Join(",", lstPropriedades.Select(x => x.nomeCampoRef))});";
                     if (nomeChavePrimaria != "")
@@ -61,15 +64,15 @@ namespace UmFramework
 
                     foreach (var oProp in lstPropriedades)
                     {
-                        oCmd.Parameters.AddWithValue(oProp.nomeCampoRef, oProp.valorCampo);
+                        oCmd.Parameters.Add(new OracleParameter(oProp.nomeCampoRef, oProp.valorCampo));
                     }
 
                     oCmd.ExecuteNonQuery();
-                    var result = oCmd.LastInsertedId;
+                  //  var result = oCmd.LastInsertedId;
                     var objetoPropriedades = objeto.GetType().GetRuntimeProperties();
 
                     PropertyInfo chave = (PropertyInfo)objetoPropriedades.Where(x => x.Name == nomeChavePrimaria).FirstOrDefault();
-                    chave.SetValue(objeto, oCmd.LastInsertedId);
+                    //chave.SetValue(objeto, oCmd.LastInsertedId);
 
                     conSql.Close();
                     return true;
@@ -85,10 +88,10 @@ namespace UmFramework
         {
             try
             {
-                using (MySqlCommand oCmd = conSql.CreateCommand())
+                using (OracleCommand oCmd = conSql.CreateCommand())
                 {
                     conSql.Open();
-                    List<ListaDePropriedades> lstPropriedades = this.getListaDePropriedades(objeto, ignorarPersistencia);
+                    List<ListaDePropriedades> lstPropriedades = MetodosAuxiliares.getListaDePropriedades(objeto, ignorarPersistencia);
 
                     string query = $@"UPDATE {nomeTabela} SET {string.Join(",", lstPropriedades.Select(x => x.nomeCampo + " = " + x.nomeCampoRef))}";
 
@@ -101,7 +104,7 @@ namespace UmFramework
 
                     foreach (var oProp in lstPropriedades)
                     {
-                        oCmd.Parameters.AddWithValue(oProp.nomeCampoRef, oProp.valorCampo);
+                        oCmd.Parameters.Add(new OracleParameter(oProp.nomeCampoRef, oProp.valorCampo));
                     }
 
                     var result = oCmd.ExecuteNonQuery();
@@ -121,10 +124,10 @@ namespace UmFramework
             long valorChavePrimaria = 0;
             List<string> ignorarPersistencia = new List<string>();
 
-            this.getAnnotations(objeto, ref nomeTabela, ref nomeChavePrimaria, ref valorChavePrimaria, ref ignorarPersistencia);
+            MetodosAuxiliares.getAnnotations(objeto, ref nomeTabela, ref nomeChavePrimaria, ref valorChavePrimaria, ref ignorarPersistencia);
             try
             {
-                using (MySqlCommand oCmd = conSql.CreateCommand())
+                using (OracleCommand oCmd = conSql.CreateCommand())
                 {
                     conSql.Open();
                     string query = $@"DELETE FROM {nomeTabela} WHERE {nomeChavePrimaria} = {valorChavePrimaria}";
@@ -144,11 +147,11 @@ namespace UmFramework
         {
             try
             {
-                using (MySqlCommand oCmd = conSql.CreateCommand())
+                using (OracleCommand oCmd = conSql.CreateCommand())
                 {
                     var oDataTable = new DataTable();
                     oCmd.CommandText = query;
-                    MySql.Data.MySqlClient.MySqlDataAdapter oAdap = new MySqlDataAdapter(oCmd);
+                    OracleDataAdapter oAdap = new OracleDataAdapter(oCmd);
                     oAdap.Fill(oDataTable);
                     return oDataTable;
                 }
@@ -167,7 +170,7 @@ namespace UmFramework
             long valorChavePrimaria = 0;
             List<string> ignorarPersistencia = new List<string>();
 
-            this.getAnnotations(objeto, ref nomeTabela, ref nomeChavePrimaria, ref valorChavePrimaria, ref ignorarPersistencia);
+            MetodosAuxiliares.getAnnotations(objeto, ref nomeTabela, ref nomeChavePrimaria, ref valorChavePrimaria, ref ignorarPersistencia);
 
             string query = $@"SELECT * FROM {nomeTabela} WHERE {nomeChavePrimaria} = {id}";
             List<T> aLista = this.CarregarLista<T>(query);
@@ -191,52 +194,23 @@ namespace UmFramework
         private List<T> CarregarLista<T>(string query) where T : new()
         {
             var objeto = new T();
-            var objetoPropriedades = objeto.GetType().GetRuntimeProperties();
-            var lstObjeto = new List<T>();
             string nomeTabela = "";
             string nomeChavePrimaria = "";
             long valorChavePrimaria = 0;
             List<string> ignorarPersistencia = new List<string>();
 
-            this.getAnnotations(objeto, ref nomeTabela, ref nomeChavePrimaria, ref valorChavePrimaria, ref ignorarPersistencia);
+            MetodosAuxiliares.getAnnotations(objeto, ref nomeTabela, ref nomeChavePrimaria, ref valorChavePrimaria, ref ignorarPersistencia);
             try
             {
-                using (MySqlCommand oCmd = conSql.CreateCommand())
+                using (OracleCommand oCmd = conSql.CreateCommand())
                 {
                     var oDataTable = new DataTable();
                     oCmd.CommandText = query;
-                    MySql.Data.MySqlClient.MySqlDataAdapter oAdap = new MySqlDataAdapter(oCmd);
+                    OracleDataAdapter oAdap = new OracleDataAdapter(oCmd);
                     oAdap.Fill(oDataTable);
-
-                    if (oDataTable.Rows.Count > 0)
-                    {
-                        foreach (DataRow objetoDb in oDataTable.Rows)
-                        {
-                            var newObjeto = new T();
-                            foreach (var item in objetoPropriedades)
-                            {
-                                var campo = ignorarPersistencia.FirstOrDefault(x => x == item.Name);
-                                if(campo == null)
-                                {
-                                    var valor = objetoDb[item.Name] != DBNull.Value ? objetoDb[item.Name] : default;
-                                    if (item.PropertyType.Name == "Boolean")
-                                    {
-                                        item.SetValue(newObjeto, Convert.ToInt32(valor) == 1 ? true : false);
-                                    }
-                                    else
-                                    {
-                                        item.SetValue(newObjeto, valor);
-                                    }
-                                }
-
-
-                            }
-                            lstObjeto.Add(newObjeto);
-                        }
-
-                    }
+                    return MetodosAuxiliares.getListFromDataTable<T>(oDataTable, ignorarPersistencia);
                 }
-                return lstObjeto;
+
             }
             catch (Exception)
             {
@@ -244,53 +218,5 @@ namespace UmFramework
             }
 
         }
-        private void getAnnotations(Object objeto, ref string nomeTabela, ref string nomeChavePrimaria, ref long valorChavePrimaria, ref List<string> ignorarPersistencia)
-        {
-            var objetoType = objeto.GetType();
-            nomeTabela = ((Annotations.Tabela)objetoType.GetCustomAttribute(typeof(Annotations.Tabela))).nomeTabela;
-
-            foreach (var oProp in objetoType.GetProperties())
-            {
-                Annotations.Campo atributo = (Annotations.Campo)oProp.GetCustomAttribute(typeof(Annotations.Campo), true);
-                if (atributo != null)
-                {
-                    if (atributo.chavePrimaria == true)
-                    {
-                        nomeChavePrimaria = oProp.Name;
-                        valorChavePrimaria = Convert.ToInt64(oProp.GetValue(objeto, null));
-                    }
-                    else if (atributo.ignorarPersitencia)
-                    {
-                        ignorarPersistencia.Add(oProp.Name);
-                    }
-
-                }
-            }
-        }
-        private List<ListaDePropriedades> getListaDePropriedades(Object objeto, List<string> ignorarPersistencia)
-        {
-            List<ListaDePropriedades> lstPropriedades = new List<ListaDePropriedades>();
-            foreach (var prop in objeto.GetType().GetProperties())
-            {
-                var campo = ignorarPersistencia.FirstOrDefault(x => x == prop.Name);
-                if(campo == null)
-                {
-                    ListaDePropriedades aPropriedade = new ListaDePropriedades();
-                    aPropriedade.nomeCampo = prop.Name;
-                    aPropriedade.nomeCampoRef = "@" + prop.Name;
-                    aPropriedade.valorCampo = prop.GetValue(objeto, null);
-                    lstPropriedades.Add(aPropriedade);
-                }
-            }
-            return lstPropriedades;
-        }
-
-    }
-    class ListaDePropriedades
-    {
-        public string nomeCampo;
-        public string nomeCampoRef;
-        public Object valorCampo;
     }
 }
-
