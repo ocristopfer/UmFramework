@@ -13,6 +13,10 @@ namespace UmFramework
         public string nome { get; set; }
         public DateTime data { get; set; }
         public bool ativo { get; set; }
+
+        public DateTime nascimento { get; set; }
+
+        public string endereco { get; set; }
         
         [Campo(ignorarPersitencia = true)]
         public string teste { get; set; }

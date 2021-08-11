@@ -213,8 +213,6 @@ namespace UmFramework.Banco
                                             FETCH NEXT {tamanhoPagina}
                                                 ROWS ONLY;";
             }
-
-            return query;
         }
 
         public int getTotalRegistros()

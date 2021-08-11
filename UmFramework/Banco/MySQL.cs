@@ -38,7 +38,6 @@ namespace UmFramework.Banco
             if (nomeTabela == "" || nomeChavePrimaria == "")
                 return false;
 
-
             if ((int)valorChavePrimaria == 0)
             {
                 return this.Inserir(objeto, nomeTabela, nomeChavePrimaria, ignorarPersistencia);
@@ -74,46 +73,44 @@ namespace UmFramework.Banco
 
                 MySqlCommand oCmd = conSql.CreateCommand();
                 var index = 0;
-                foreach (var item in lstOjeto)
+
+                Console.WriteLine("Preparando query foreach: {0}", DateTime.Now);
+                lstOjeto.ForEach(item =>
                 {
-                    MetodosAuxiliares.getAnnotations(item, ref nomeTabela, ref nomeChavePrimaria, ref valorChavePrimaria, ref ignorarPersistencia);
-                    List<ListaDePropriedades> lstPropriedades = MetodosAuxiliares.getListaDePropriedades(item, ignorarPersistencia, index.ToString());
-                    if ((int)valorChavePrimaria == 0)
                     {
-                        insertQuery += this.getInsertQuery(nomeTabela, lstPropriedades, nomeChavePrimaria);
-                        lstInsert.Add(item);
+                        List<ListaDePropriedades> lstPropriedades = MetodosAuxiliares.getListaDePropriedades(item, ignorarPersistencia, index.ToString());
+                        valorChavePrimaria = (long)lstPropriedades.FirstOrDefault(x => x.nomeCampo == nomeChavePrimaria).valorCampo;
+                        if ((int)valorChavePrimaria == 0)
+                        {
+                            insertQuery += this.getInsertQuery(nomeTabela, lstPropriedades);
+                            lstInsert.Add(item);
+                        }
+                        else
+                        {
+                            updateQuery += this.getUpdateQuery(nomeTabela, lstPropriedades, nomeChavePrimaria);
+                        }
 
                         foreach (var oProp in lstPropriedades)
                         {
                             oCmd.Parameters.AddWithValue(oProp.nomeCampoRef, oProp.valorCampo);
                         }
+                        index++;
                     }
-                    else
-                    {
-                        updateQuery += this.getUpdateQuery(nomeTabela, lstPropriedades, nomeChavePrimaria);
+                });
 
-                        foreach (var oProp in lstPropriedades)
-                        {
-                            oCmd.Parameters.AddWithValue(oProp.nomeCampoRef, oProp.valorCampo);
-                        }
-                    }
-                    index++;
-                }
-
-
+                Console.WriteLine("Fim Preparando query: {0}", DateTime.Now);
                 conSql.Open();
                 trans = conSql.BeginTransaction();
+                Console.WriteLine("Inicio Executando query: {0}", DateTime.Now);
                 if (insertQuery != "")
                 {
                     oCmd.CommandText = $"SELECT MAX({nomeChavePrimaria}) FROM {nomeTabela};";
                     var result = oCmd.ExecuteScalar();
-                    var lastId = Convert.ToInt32(result != DBNull.Value? result : 0);
+                    var lastId = Convert.ToInt32(result != DBNull.Value ? result : 0);
                     oCmd.CommandText = insertQuery;
                     oCmd.ExecuteNonQuery();
-
-                    foreach (var item in lstOjeto)
+                    lstOjeto.ForEach(item =>
                     {
-                        
                         var ojb = lstInsert.Where(x => x.Equals(item)).FirstOrDefault();
                         if (ojb != null)
                         {
@@ -122,9 +119,7 @@ namespace UmFramework.Banco
                             PropertyInfo chave = (PropertyInfo)objetoPropriedades.Where(x => x.Name == nomeChavePrimaria).FirstOrDefault();
                             chave.SetValue(ojb, lastId);
                         }
-                
-                    }
-
+                    });
                 }
                 if (updateQuery != "")
                 {
@@ -132,18 +127,16 @@ namespace UmFramework.Banco
                     oCmd.ExecuteNonQuery();
                 }
                 trans.Commit();
-                
+                Console.WriteLine("Fim Executando query: {0}", DateTime.Now);
                 conSql.Close();
                 return true;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 trans.Rollback();
                 conSql.Close();
                 return false;
             }
-
-            //throw new NotImplementedException();
 
         }
 
@@ -152,7 +145,6 @@ namespace UmFramework.Banco
             MySqlTransaction trans = null;
             try
             {
-
                 MySqlCommand oCmd = conSql.CreateCommand();
 
                 conSql.Open();
@@ -162,7 +154,7 @@ namespace UmFramework.Banco
 
                 List<ListaDePropriedades> lstPropriedades = MetodosAuxiliares.getListaDePropriedades(objeto, ignorarPersistencia);
 
-                oCmd.CommandText = getInsertQuery(nomeTabela, lstPropriedades, nomeChavePrimaria);
+                oCmd.CommandText = getInsertQuery(nomeTabela, lstPropriedades);
 
                 foreach (var oProp in lstPropriedades)
                 {
@@ -193,15 +185,12 @@ namespace UmFramework.Banco
 
         }
 
-        private string getInsertQuery(string nomeTabela, List<ListaDePropriedades> lstPropriedades, string nomeChavePrimaria = "")
+        private string getInsertQuery(string nomeTabela, List<ListaDePropriedades> lstPropriedades)
         {
             string query = $@"INSERT INTO {nomeTabela} ({string.Join(",", lstPropriedades.Select(x => x.nomeCampo))}) VALUES ({string.Join(",", lstPropriedades.Select(x => x.nomeCampoRef))});";
-            if (nomeChavePrimaria != "")
-            {
-                query += "SELECT LAST_INSERT_ID();";
-            }
             return query;
         }
+
         private bool Atualizar(Object objeto, string nomeTabela, string nomeChavePrimaria, List<string> ignorarPersistencia)
         {
             MySqlTransaction trans = null;
@@ -248,6 +237,7 @@ namespace UmFramework.Banco
             }
             return query + ";";
         }
+
         public bool Excluir(Object objeto)
         {
             string nomeTabela = "";
@@ -283,6 +273,7 @@ namespace UmFramework.Banco
             }
 
         }
+
         public DataTable ExecutarQuery(string query, int pagina = 0, int tamanhoPagina = 0)
         {
             try
@@ -301,6 +292,7 @@ namespace UmFramework.Banco
                 return null;
             }
         }
+
         public T CarregarObjeto<T>(long id) where T : new()
         {
             var objeto = new T();
@@ -310,9 +302,10 @@ namespace UmFramework.Banco
             List<string> ignorarPersistencia = new List<string>();
 
             MetodosAuxiliares.getAnnotations(objeto, ref nomeTabela, ref nomeChavePrimaria, ref valorChavePrimaria, ref ignorarPersistencia);
+            List<ListaDePropriedades> lstPropriedades = MetodosAuxiliares.getListaDePropriedades(objeto, ignorarPersistencia);
 
-            string query = $@"SELECT * FROM {nomeTabela} WHERE {nomeChavePrimaria} = {id}";
-            List<T> aLista = this.CarregarLista<T>(query);
+            string query = $@"SELECT {string.Join(",", lstPropriedades.Select(x => x.nomeCampo))} FROM {nomeTabela} WHERE {nomeChavePrimaria} = {id}";
+            List<T> aLista = this.CarregarLista<T>(query, ignorarPersistencia);
             if (aLista.Count > 0)
             {
                 return aLista[0];
@@ -323,24 +316,25 @@ namespace UmFramework.Banco
             }
 
         }
+
         public List<T> CarregarObjetos<T>(string CustomQuery = "", int pagina = 0, int tamanhoPagina = 0) where T : new()
         {
             var objeto = new T();
-            var nomeTabela = ((Annotations.Tabela)objeto.GetType().GetCustomAttribute(typeof(Annotations.Tabela))).nomeTabela;
-            string query = CustomQuery != "" ? CustomQuery : $@"SELECT * FROM {nomeTabela}";
-            query = this.PaginarQuery(query, pagina, tamanhoPagina);
-
-            return this.CarregarLista<T>(query);
-        }
-        private List<T> CarregarLista<T>(string query) where T : new()
-        {
-            var objeto = new T();
-            string nomeTabela = "";
+            string nomeTabela = ((Annotations.Tabela)objeto.GetType().GetCustomAttribute(typeof(Annotations.Tabela))).nomeTabela;
             string nomeChavePrimaria = "";
             long valorChavePrimaria = 0;
             List<string> ignorarPersistencia = new List<string>();
-
             MetodosAuxiliares.getAnnotations(objeto, ref nomeTabela, ref nomeChavePrimaria, ref valorChavePrimaria, ref ignorarPersistencia);
+            List<ListaDePropriedades> lstPropriedades = MetodosAuxiliares.getListaDePropriedades(objeto, ignorarPersistencia);
+
+            string query = CustomQuery != "" ? CustomQuery : $@"SELECT {string.Join(",", lstPropriedades.Select(x => x.nomeCampo))} FROM {nomeTabela}";
+            query = this.PaginarQuery(query, pagina, tamanhoPagina);
+
+            return this.CarregarLista<T>(query, ignorarPersistencia);
+        }
+
+        private List<T> CarregarLista<T>(string query, List<string> ignorarPersistencia) where T : new()
+        {
             try
             {
                 MySqlCommand oCmd = conSql.CreateCommand();
@@ -354,6 +348,7 @@ namespace UmFramework.Banco
                     oCmd.CommandText = "SELECT FOUND_ROWS();";
                     this.totalRegistros = Convert.ToInt32(oCmd.ExecuteScalar());
                 }
+                conSql.Close();
                 return MetodosAuxiliares.getListFromDataTable<T>(oDataTable, ignorarPersistencia);
 
             }
