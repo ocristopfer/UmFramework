@@ -10,7 +10,7 @@ namespace UmFramework
     interface IPersitencia
     {
         public bool Salvar(Object objeto);
-        public bool SalvarLista(List<Object> lstOjeto);
+        public bool SalvarLista<T>(List<T> lstOjeto);
         public bool Excluir(Object objeto);
         public DataTable ExecutarQuery(string query, int pagina = 0, int tamanhoPagina = 0);
         public T CarregarObjeto<T>(long id) where T : new();

@@ -10,13 +10,13 @@ using UmFramework.Util;
 
 namespace UmFramework.Banco
 {
-    class MySQL: IPersitencia
+    class MySQL : IPersitencia
     {
         private readonly MySqlConnection conSql;
         private readonly bool transaction = false;
         private bool queryPagina = false;
         private int totalRegistros = 0;
-        
+
         public MySQL(MySqlConnection conSql, bool transaction = false)
         {
             this.conSql = conSql;
@@ -33,7 +33,7 @@ namespace UmFramework.Banco
             long valorChavePrimaria = 0;
             List<string> ignorarPersistencia = new();
 
-           MetodosAuxiliares.getAnnotations(objeto, ref nomeTabela, ref nomeChavePrimaria, ref valorChavePrimaria, ref ignorarPersistencia);
+            MetodosAuxiliares.getAnnotations(objeto, ref nomeTabela, ref nomeChavePrimaria, ref valorChavePrimaria, ref ignorarPersistencia);
 
             if (nomeTabela == "" || nomeChavePrimaria == "")
                 return false;
@@ -50,7 +50,7 @@ namespace UmFramework.Banco
 
         }
 
-        public bool SalvarLista(List<object> lstOjeto)
+        public bool SalvarLista<T>(List<T> lstOjeto)
         {
             if (lstOjeto == null)
                 return false;
@@ -59,27 +59,92 @@ namespace UmFramework.Banco
             string nomeChavePrimaria = "";
             long valorChavePrimaria = 0;
             List<string> ignorarPersistencia = new();
+            MetodosAuxiliares.getAnnotations(lstOjeto.FirstOrDefault(), ref nomeTabela, ref nomeChavePrimaria, ref valorChavePrimaria, ref ignorarPersistencia);
 
             if (nomeTabela == "" || nomeChavePrimaria == "")
                 return false;
 
             var insertQuery = "";
             var updateQuery = "";
-            foreach (var item in lstOjeto)
+            List<Object> lstInsert = new List<Object>();
+            MySqlTransaction trans = null;
+
+            try
             {
-                MetodosAuxiliares.getAnnotations(item, ref nomeTabela, ref nomeChavePrimaria, ref valorChavePrimaria, ref ignorarPersistencia);
-                List<ListaDePropriedades> lstPropriedades = MetodosAuxiliares.getListaDePropriedades(item, ignorarPersistencia);
-                if ((int)valorChavePrimaria == 0)
+
+                MySqlCommand oCmd = conSql.CreateCommand();
+                var index = 0;
+                foreach (var item in lstOjeto)
                 {
-                    insertQuery = this.getInsertQuery(nomeTabela, lstPropriedades, nomeChavePrimaria);
+                    MetodosAuxiliares.getAnnotations(item, ref nomeTabela, ref nomeChavePrimaria, ref valorChavePrimaria, ref ignorarPersistencia);
+                    List<ListaDePropriedades> lstPropriedades = MetodosAuxiliares.getListaDePropriedades(item, ignorarPersistencia, index.ToString());
+                    if ((int)valorChavePrimaria == 0)
+                    {
+                        insertQuery += this.getInsertQuery(nomeTabela, lstPropriedades, nomeChavePrimaria);
+                        lstInsert.Add(item);
+
+                        foreach (var oProp in lstPropriedades)
+                        {
+                            oCmd.Parameters.AddWithValue(oProp.nomeCampoRef, oProp.valorCampo);
+                        }
+                    }
+                    else
+                    {
+                        updateQuery += this.getUpdateQuery(nomeTabela, lstPropriedades, nomeChavePrimaria);
+
+                        foreach (var oProp in lstPropriedades)
+                        {
+                            oCmd.Parameters.AddWithValue(oProp.nomeCampoRef, oProp.valorCampo);
+                        }
+                    }
+                    index++;
                 }
-                else
+
+
+                conSql.Open();
+                trans = conSql.BeginTransaction();
+                if (insertQuery != "")
                 {
-                    updateQuery = this.getUpdateQuery(nomeTabela, lstPropriedades, nomeChavePrimaria);
+                    oCmd.CommandText = $"SELECT MAX({nomeChavePrimaria}) FROM {nomeTabela};";
+                    var result = oCmd.ExecuteScalar();
+                    var lastId = Convert.ToInt32(result != DBNull.Value? result : 0);
+                    oCmd.CommandText = insertQuery;
+                    oCmd.ExecuteNonQuery();
+
+                    foreach (var item in lstOjeto)
+                    {
+                        
+                        var ojb = lstInsert.Where(x => x.Equals(item)).FirstOrDefault();
+                        if (ojb != null)
+                        {
+                            lastId++;
+                            var objetoPropriedades = item.GetType().GetRuntimeProperties();
+                            PropertyInfo chave = (PropertyInfo)objetoPropriedades.Where(x => x.Name == nomeChavePrimaria).FirstOrDefault();
+                            chave.SetValue(ojb, lastId);
+                        }
+                
+                    }
+
                 }
+                if (updateQuery != "")
+                {
+                    oCmd.CommandText = updateQuery;
+                    oCmd.ExecuteNonQuery();
+                }
+                trans.Commit();
+                
+                conSql.Close();
+                return true;
             }
-            throw new NotImplementedException();
-            
+            catch (Exception ex)
+            {
+                trans.Rollback();
+                conSql.Close();
+                return false;
+            }
+
+            //throw new NotImplementedException();
+
         }
 
         private bool Inserir(Object objeto, string nomeTabela, string nomeChavePrimaria, List<string> ignorarPersistencia)
@@ -89,9 +154,9 @@ namespace UmFramework.Banco
             {
 
                 MySqlCommand oCmd = conSql.CreateCommand();
-                
+
                 conSql.Open();
-                
+
                 if (this.transaction)
                     trans = conSql.BeginTransaction();
 
@@ -149,7 +214,7 @@ namespace UmFramework.Banco
 
 
                 List<ListaDePropriedades> lstPropriedades = MetodosAuxiliares.getListaDePropriedades(objeto, ignorarPersistencia);
-                
+
                 oCmd.CommandText = this.getUpdateQuery(nomeTabela, lstPropriedades, nomeChavePrimaria);
 
                 foreach (var oProp in lstPropriedades)
@@ -173,7 +238,7 @@ namespace UmFramework.Banco
             }
         }
 
-        private string getUpdateQuery(string nomeTabela, List<ListaDePropriedades>  lstPropriedades, string nomeChavePrimaria)
+        private string getUpdateQuery(string nomeTabela, List<ListaDePropriedades> lstPropriedades, string nomeChavePrimaria)
         {
             string query = $@"UPDATE {nomeTabela} SET {string.Join(",", lstPropriedades.Select(x => x.nomeCampo + " = " + x.nomeCampoRef))}";
 
@@ -181,7 +246,7 @@ namespace UmFramework.Banco
             {
                 query += $" WHERE {nomeChavePrimaria} = " + lstPropriedades.Where(x => x.nomeCampo == nomeChavePrimaria).ToList()[0].valorCampo;
             }
-            return query;
+            return query + ";";
         }
         public bool Excluir(Object objeto)
         {
@@ -218,13 +283,14 @@ namespace UmFramework.Banco
             }
 
         }
-        public DataTable ExecutarQuery(string query, int pagina = 0, int tamanhoPagina = 0)        {
+        public DataTable ExecutarQuery(string query, int pagina = 0, int tamanhoPagina = 0)
+        {
             try
             {
                 using MySqlCommand oCmd = conSql.CreateCommand();
                 var oDataTable = new DataTable();
                 query = this.PaginarQuery(query, pagina, tamanhoPagina);
-                
+
                 oCmd.CommandText = query;
                 MySqlDataAdapter oAdap = new MySqlDataAdapter(oCmd);
                 oAdap.Fill(oDataTable);
@@ -263,7 +329,7 @@ namespace UmFramework.Banco
             var nomeTabela = ((Annotations.Tabela)objeto.GetType().GetCustomAttribute(typeof(Annotations.Tabela))).nomeTabela;
             string query = CustomQuery != "" ? CustomQuery : $@"SELECT * FROM {nomeTabela}";
             query = this.PaginarQuery(query, pagina, tamanhoPagina);
-    
+
             return this.CarregarLista<T>(query);
         }
         private List<T> CarregarLista<T>(string query) where T : new()
@@ -301,7 +367,7 @@ namespace UmFramework.Banco
 
         private string PaginarQuery(string query, int pagina, int tamanhoPagina)
         {
-            if(tamanhoPagina == 0)
+            if (tamanhoPagina == 0)
             {
                 this.queryPagina = false;
                 return query;
@@ -313,7 +379,7 @@ namespace UmFramework.Banco
                 query = query.Replace("SELECT", "SELECT SQL_CALC_FOUND_ROWS");
                 return query += $@" LIMIT {pagina},{tamanhoPagina};";
             }
-            
+
         }
 
         public int getTotalRegistros() => this.totalRegistros;

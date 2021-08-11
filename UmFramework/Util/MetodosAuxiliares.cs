@@ -75,7 +75,7 @@ namespace UmFramework.Util
                 }
             }
         }
-        public static List<ListaDePropriedades> getListaDePropriedades(Object objeto, List<string> ignorarPersistencia)
+        public static List<ListaDePropriedades> getListaDePropriedades(Object objeto, List<string> ignorarPersistencia, string customId = "")
         {
             List<ListaDePropriedades> lstPropriedades = new List<ListaDePropriedades>();
             foreach (var prop in objeto.GetType().GetProperties())
@@ -85,7 +85,7 @@ namespace UmFramework.Util
                 {
                     ListaDePropriedades aPropriedade = new ListaDePropriedades();
                     aPropriedade.nomeCampo = prop.Name;
-                    aPropriedade.nomeCampoRef = "@" + prop.Name;
+                    aPropriedade.nomeCampoRef = "@" + prop.Name + customId;
                     aPropriedade.valorCampo = prop.GetValue(objeto, null);
                     lstPropriedades.Add(aPropriedade);
                 }

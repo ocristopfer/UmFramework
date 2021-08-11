@@ -231,5 +231,10 @@ namespace UmFramework.Banco
         {
             throw new NotImplementedException();
         }
+
+        public bool SalvarLista<T>(List<T> lstOjeto)
+        {
+            throw new NotImplementedException();
+        }
     }
 }
