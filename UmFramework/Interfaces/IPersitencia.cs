@@ -14,7 +14,7 @@ namespace UmFramework
         public bool Excluir(Object objeto);
         public DataTable ExecutarQuery(string query, int pagina = 0, int tamanhoPagina = 0);
         public T CarregarObjeto<T>(long id) where T : new();
-        public List<T> CarregarObjetos<T>(string CustomQuery = "", int pagina = 0, int tamanhoPagina = 0) where T : new();
- 
+        public List<T> CarregarObjetos<T>(string CustomQuery= "", int pagina = 0, int tamanhoPagina = 0) where T : new();
+        public int getTotalRegistros();
     }
 }

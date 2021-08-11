@@ -14,6 +14,9 @@ namespace UmFramework.Banco
     {
         private readonly MySqlConnection conSql;
         private readonly bool transaction = false;
+        private bool queryPagina = false;
+        private int totalRegistros = 0;
+        
         public MySQL(MySqlConnection conSql, bool transaction = false)
         {
             this.conSql = conSql;
@@ -28,7 +31,7 @@ namespace UmFramework.Banco
             string nomeTabela = "";
             string nomeChavePrimaria = "";
             long valorChavePrimaria = 0;
-            List<string> ignorarPersistencia = new List<string>();
+            List<string> ignorarPersistencia = new();
 
            MetodosAuxiliares.getAnnotations(objeto, ref nomeTabela, ref nomeChavePrimaria, ref valorChavePrimaria, ref ignorarPersistencia);
 
@@ -55,7 +58,7 @@ namespace UmFramework.Banco
             string nomeTabela = "";
             string nomeChavePrimaria = "";
             long valorChavePrimaria = 0;
-            List<string> ignorarPersistencia = new List<string>();
+            List<string> ignorarPersistencia = new();
 
             if (nomeTabela == "" || nomeChavePrimaria == "")
                 return false;
@@ -185,7 +188,7 @@ namespace UmFramework.Banco
             string nomeTabela = "";
             string nomeChavePrimaria = "";
             long valorChavePrimaria = 0;
-            List<string> ignorarPersistencia = new List<string>();
+            List<string> ignorarPersistencia = new();
             MySqlTransaction trans = null;
 
             MetodosAuxiliares.getAnnotations(objeto, ref nomeTabela, ref nomeChavePrimaria, ref valorChavePrimaria, ref ignorarPersistencia);
@@ -274,11 +277,17 @@ namespace UmFramework.Banco
             MetodosAuxiliares.getAnnotations(objeto, ref nomeTabela, ref nomeChavePrimaria, ref valorChavePrimaria, ref ignorarPersistencia);
             try
             {
-                using MySqlCommand oCmd = conSql.CreateCommand();
+                MySqlCommand oCmd = conSql.CreateCommand();
+                conSql.Open();
                 var oDataTable = new DataTable();
                 oCmd.CommandText = query;
-                MySql.Data.MySqlClient.MySqlDataAdapter oAdap = new MySqlDataAdapter(oCmd);
+                MySqlDataAdapter oAdap = new MySqlDataAdapter(oCmd);
                 oAdap.Fill(oDataTable);
+                if (this.queryPagina)
+                {
+                    oCmd.CommandText = "SELECT FOUND_ROWS();";
+                    this.totalRegistros = Convert.ToInt32(oCmd.ExecuteScalar());
+                }
                 return MetodosAuxiliares.getListFromDataTable<T>(oDataTable, ignorarPersistencia);
 
             }
@@ -294,16 +303,19 @@ namespace UmFramework.Banco
         {
             if(tamanhoPagina == 0)
             {
+                this.queryPagina = false;
                 return query;
             }
             else
             {
+                this.queryPagina = true;
                 pagina = (pagina - 1) * tamanhoPagina;
-                return query += $@" LIMIT {pagina},{tamanhoPagina}";
+                query = query.Replace("SELECT", "SELECT SQL_CALC_FOUND_ROWS");
+                return query += $@" LIMIT {pagina},{tamanhoPagina};";
             }
             
         }
 
-
+        public int getTotalRegistros() => this.totalRegistros;
     }
 }

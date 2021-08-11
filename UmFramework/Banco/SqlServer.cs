@@ -216,5 +216,10 @@ namespace UmFramework.Banco
 
             return query;
         }
+
+        public int getTotalRegistros()
+        {
+            throw new NotImplementedException();
+        }
     }
 }

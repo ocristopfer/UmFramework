@@ -32,6 +32,7 @@ namespace UmFramework
 
             
             var teste3 = db.CarregarObjetos<TesteDados>("", 1, 10);
+            var total = db.getTotalRegistros();
             var teste4 = db.ExecutarQuery("SELECT * FROM CADASTRO");
             var count = teste4.Rows.Count;
 
