@@ -32,7 +32,7 @@ namespace UmFramework
             db.Salvar(teste);
 
             List<TesteDados> lstTeste = new List<TesteDados>();
-            for (int i = 0; i < 50000; i++)
+            for (int i = 0; i < 10000; i++)
             {
                 var oTeste = new TesteDados
                 {

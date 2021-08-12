@@ -22,7 +22,7 @@ namespace UmFramework.Util
                 _ => new Banco.MySQL((MySqlConnection)oCon, transaction),
             };
         }
-        public static List<T> getListFromDataTable<T>(DataTable oDataTable, List<string> ignorarPersistencia) where T : new()
+        public static List<T> GetListFromDataTable<T>(DataTable oDataTable, List<string> ignorarPersistencia) where T : new()
         {
             var objetoPropriedades = new T().GetType().GetRuntimeProperties();
             var lstObjeto = new List<T>();
@@ -39,7 +39,7 @@ namespace UmFramework.Util
                             var valor = objetoDb[item.Name] != DBNull.Value ? objetoDb[item.Name] : default;
                             if (item.PropertyType.Name == "Boolean")
                             {
-                                item.SetValue(newObjeto, Convert.ToInt32(valor) == 1 ? true : false);
+                                item.SetValue(newObjeto, Convert.ToInt32(valor) == 1);
                             }
                             else
                             {
@@ -52,7 +52,7 @@ namespace UmFramework.Util
             }
             return lstObjeto;
         }
-        public static void getAnnotations(Object objeto, ref string nomeTabela, ref string nomeChavePrimaria, ref long valorChavePrimaria, ref List<string> ignorarPersistencia)
+        public static void GetAnnotations(Object objeto, ref string nomeTabela, ref string nomeChavePrimaria, ref long valorChavePrimaria, ref List<string> ignorarPersistencia)
         {
             var objetoType = objeto.GetType();
             nomeTabela = ((Annotations.Tabela)objetoType.GetCustomAttribute(typeof(Annotations.Tabela))).nomeTabela;
@@ -75,18 +75,20 @@ namespace UmFramework.Util
                 }
             }
         }
-        public static List<ListaDePropriedades> getListaDePropriedades(Object objeto, List<string> ignorarPersistencia, string customId = "")
+        public static List<ListaDePropriedades> GetListaDePropriedades(Object objeto, List<string> ignorarPersistencia, string customId = "")
         {
-            List<ListaDePropriedades> lstPropriedades = new List<ListaDePropriedades>();
+            List<ListaDePropriedades> lstPropriedades = new();
             foreach (var prop in objeto.GetType().GetProperties())
             {
                 var campo = ignorarPersistencia.FirstOrDefault(x => x == prop.Name);
                 if (campo == null)
                 {
-                    ListaDePropriedades aPropriedade = new ListaDePropriedades();
-                    aPropriedade.nomeCampo = prop.Name;
-                    aPropriedade.nomeCampoRef = "@" + prop.Name + customId;
-                    aPropriedade.valorCampo = prop.GetValue(objeto, null);
+                    ListaDePropriedades aPropriedade = new()
+                    {
+                        nomeCampo = prop.Name,
+                        nomeCampoRef = "@" + prop.Name + customId,
+                        valorCampo = prop.GetValue(objeto, null)
+                    };
                     lstPropriedades.Add(aPropriedade);
                 }
             }

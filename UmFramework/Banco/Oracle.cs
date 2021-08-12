@@ -31,7 +31,7 @@ namespace UmFramework.Banco
             long valorChavePrimaria = 0;
             List<string> ignorarPersistencia = new List<string>();
 
-            MetodosAuxiliares.getAnnotations(objeto, ref nomeTabela, ref nomeChavePrimaria, ref valorChavePrimaria, ref ignorarPersistencia);
+            MetodosAuxiliares.GetAnnotations(objeto, ref nomeTabela, ref nomeChavePrimaria, ref valorChavePrimaria, ref ignorarPersistencia);
 
             if (nomeTabela == "" || nomeChavePrimaria == "")
                 return false;
@@ -60,7 +60,7 @@ namespace UmFramework.Banco
                 using (OracleCommand oCmd = conSql.CreateCommand())
                 {
                     conSql.Open();
-                    List<ListaDePropriedades> lstPropriedades = MetodosAuxiliares.getListaDePropriedades(objeto, ignorarPersistencia);
+                    List<ListaDePropriedades> lstPropriedades = MetodosAuxiliares.GetListaDePropriedades(objeto, ignorarPersistencia);
 
                     string query = $@"INSERT INTO {nomeTabela} ({string.Join(",", lstPropriedades.Select(x => x.nomeCampo))}) VALUES ({string.Join(",", lstPropriedades.Select(x => x.nomeCampoRef))});";
                     if (nomeChavePrimaria != "")
@@ -99,7 +99,7 @@ namespace UmFramework.Banco
                 using (OracleCommand oCmd = conSql.CreateCommand())
                 {
                     conSql.Open();
-                    List<ListaDePropriedades> lstPropriedades = MetodosAuxiliares.getListaDePropriedades(objeto, ignorarPersistencia);
+                    List<ListaDePropriedades> lstPropriedades = MetodosAuxiliares.GetListaDePropriedades(objeto, ignorarPersistencia);
 
                     string query = $@"UPDATE {nomeTabela} SET {string.Join(",", lstPropriedades.Select(x => x.nomeCampo + " = " + x.nomeCampoRef))}";
 
@@ -132,7 +132,7 @@ namespace UmFramework.Banco
             long valorChavePrimaria = 0;
             List<string> ignorarPersistencia = new List<string>();
 
-            MetodosAuxiliares.getAnnotations(objeto, ref nomeTabela, ref nomeChavePrimaria, ref valorChavePrimaria, ref ignorarPersistencia);
+            MetodosAuxiliares.GetAnnotations(objeto, ref nomeTabela, ref nomeChavePrimaria, ref valorChavePrimaria, ref ignorarPersistencia);
             try
             {
                 using (OracleCommand oCmd = conSql.CreateCommand())
@@ -178,7 +178,7 @@ namespace UmFramework.Banco
             long valorChavePrimaria = 0;
             List<string> ignorarPersistencia = new List<string>();
 
-            MetodosAuxiliares.getAnnotations(objeto, ref nomeTabela, ref nomeChavePrimaria, ref valorChavePrimaria, ref ignorarPersistencia);
+            MetodosAuxiliares.GetAnnotations(objeto, ref nomeTabela, ref nomeChavePrimaria, ref valorChavePrimaria, ref ignorarPersistencia);
 
             string query = $@"SELECT * FROM {nomeTabela} WHERE {nomeChavePrimaria} = {id}";
             List<T> aLista = this.CarregarLista<T>(query);
@@ -207,7 +207,7 @@ namespace UmFramework.Banco
             long valorChavePrimaria = 0;
             List<string> ignorarPersistencia = new List<string>();
 
-            MetodosAuxiliares.getAnnotations(objeto, ref nomeTabela, ref nomeChavePrimaria, ref valorChavePrimaria, ref ignorarPersistencia);
+            MetodosAuxiliares.GetAnnotations(objeto, ref nomeTabela, ref nomeChavePrimaria, ref valorChavePrimaria, ref ignorarPersistencia);
             try
             {
                 using (OracleCommand oCmd = conSql.CreateCommand())
@@ -216,7 +216,7 @@ namespace UmFramework.Banco
                     oCmd.CommandText = query;
                     OracleDataAdapter oAdap = new OracleDataAdapter(oCmd);
                     oAdap.Fill(oDataTable);
-                    return MetodosAuxiliares.getListFromDataTable<T>(oDataTable, ignorarPersistencia);
+                    return MetodosAuxiliares.GetListFromDataTable<T>(oDataTable, ignorarPersistencia);
                 }
 
             }
